@@ -1,0 +1,61 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  # Update the apt package index and install packages needed to use the Docker and Kubernetes apt repositories over HTTPS
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+
+hostname: $INSTANCE_ID
+fqdn: $INSTANCE_ID.***FQDN***
+preserve_hostname: true
+
+network-interfaces: |
+  iface enp1s0 inet static
+  address 10.0.1.$IP
+  netmask 255.255.252.0
+  gateway 10.0.0.1
+
+# create the docker group
+groups:
+  - docker
+
+  # Add default auto created user to docker group
+
+system_info:
+  default_user:
+    groups: [docker]
+
+users:
+  - name: ***NAME***
+    ssh_authorized_keys:
+      - ssh-rsa ***PUBLICKEY***
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    groups: sudo
+    shell: /bin/bash
+    plain_text_passwd: '***PASWORD***'
+    lock_passwd: false
+
+write_files:
+# https://stackoverflow.com/questions/52119985/kubeadm-init-shows-kubelet-isnt-running-or-healthy
+- content: |
+    {
+        "exec-opts": ["native.cgroupdriver=systemd"]
+    }
+  path: /etc/docker/daemon.json
+  owner: root:root
+
+runcmd:
+# - modprobe br_netfilter # Load br_netfilter module.
+ - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg # Add Docker’s official GPG key
+ - curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg # Download the Google Cloud public signing key:
+ - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null # set up the stable repository
+ - echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list # Add the Kubernetes apt repository
+ - apt-get update -y # Update apt package index
+ - apt-get install -y docker-ce docker-ce-cli containerd.io kubelet kubeadm kubectl # Install Docker Engine, kubelet, kubeadm and kubectl 
+# - apt-mark hold kubelet kubeadm kubectl # pin kubelet kubeadm kubectl version
+# - sysctl --system # Reload settings from all system configuration files to take iptables configuration
+

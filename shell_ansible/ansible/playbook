@@ -1,0 +1,69 @@
+---
+  # Play1 - Master setup
+  - name: Master Setup
+    hosts: master
+    gather_facts: no
+    become: yes
+    become_user: root
+    tasks:
+      - name: Wait for system to become reachable
+        wait_for_connection:
+          timeout: 60
+      - name: Wait for kubeadm to be available
+        wait_for:
+          path: /var/log/cloud-init-output.log
+          search_regex: "modules:final"
+      - name: initialize the cluster
+        shell: |
+          sudo kubeadm init --pod-network-cidr=192.168.0.0/16
+          mkdir -p /home/k8suser/.kube
+          sudo cp -i /etc/kubernetes/admin.conf /home/k8suser/.kube/config
+          sudo chown k8suser:k8suser /home/k8suser/.kube/config
+          mkdir -p $HOME/.kube
+          sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+          sudo chown $(id -u):$(id -g) $HOME/.kube/config          
+          kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+          kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml
+        register: kubeadminit
+        tags: kubeadminit
+      - debug:
+          var: kubeadminit
+      - name: print join command
+        shell: "kubeadm token create --print-join-command"
+        register: joincmd
+        tags: joincmd
+      - debug:
+          var: joincmd
+
+  # Play2 - Worker Setup
+  - name: Worker Setup
+    hosts: workers
+    gather_facts: no
+    become: yes
+    become_user: root
+    tasks:
+      - name: Wait for system to become reachable
+        wait_for_connection:
+          timeout: 60
+      - name: join the cluster
+        shell: "{{ hostvars[groups['master'][0]]['joincmd']['stdout'] }}"
+        register: joining
+        tags: joining
+      - debug:
+          var: joining        
+
+  # Play3 - Master Verify
+  - name: Master Verify
+    hosts: master
+    gather_facts: no
+    become: yes
+    become_user: k8suser
+    tasks:
+      - name: print nodes and pods
+        shell: |
+          kubectl get nodes
+          kubectl get pods -A -owide
+        register: joincmd
+        tags: joincmd
+      - debug:
+          var: joincmd          

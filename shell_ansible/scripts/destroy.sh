@@ -1,0 +1,1 @@
+sudo virsh list --all | grep k8s | awk '{print $2}' | while read INSTANCE_ID ; do  sudo virsh destroy $INSTANCE_ID ; sudo virsh undefine $INSTANCE_ID ; done
