@@ -1,4 +1,5 @@
-# Automatically deployed Kubernetes Cluster, using Ubuntu cloud images and cloud-init.
+# kvm-k8s
+> Deploy a multi-node Kubernetes Cluster onto Linux with kubeadm using Terraform, cloudinit, and KVM. Useful for learning kubeadm and self-hosted k8s cluster administration. 
 
 Inspired by: https://sumit-ghosh.com/articles/create-vm-using-libvirt-cloud-images-cloud-init/
 
