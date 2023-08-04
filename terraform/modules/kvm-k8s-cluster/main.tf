@@ -6,14 +6,10 @@ terraform {
   }
 }
 
-provider "libvirt" {
-  uri = "qemu:///system"
-}
-
 resource "libvirt_volume" "os_image_ubuntu" {
   name   = "os_image_ubuntu"
   pool   = "default"
-  source = "http://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img"
+  source = "http://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
   #source = "../images/focal-server-cloudimg-amd64.img"
 }
 
@@ -110,24 +106,24 @@ write_files:
   owner: root:root
 runcmd:
  - hostnamectl set-hostname k8scontroller
- - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
- - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" >/etc/apt/sources.list.d/kubernetes.list
+ - curl  -fsSL https://dl.k8s.io/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+ - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" >/etc/apt/sources.list.d/kubernetes.list
  - apt-get update -y # Update apt package index
- - apt-get install -y docker.io kubelet kubeadm kubectl
- - |
-  kubeadm init \
-  --token ${local.token} \
-  --token-ttl 15m \
-  --pod-network-cidr=192.168.0.0/16 \
-  --node-name k8s-controller
- - mkdir -p /home/${var.username}/.kube
- - sudo cp -i /etc/kubernetes/admin.conf /home/${var.username}/.kube/config
- - sudo chown ${var.username}:${var.username} /home/${var.username}/.kube/config
- - mkdir -p $HOME/.kube
- - sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
- - sudo chown $(id -u):$(id -g) $HOME/.kube/config          
- - kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
- - kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml    
+#  - apt-get install -y docker.io kubelet kubeadm kubectl
+#  - |
+#   kubeadm init \
+#   --token ${local.token} \
+#   --token-ttl 15m \
+#   --pod-network-cidr=192.168.0.0/16 \
+#   --node-name k8s-controller
+#  - mkdir -p /home/${var.username}/.kube
+#  - sudo cp -i /etc/kubernetes/admin.conf /home/${var.username}/.kube/config
+#  - sudo chown ${var.username}:${var.username} /home/${var.username}/.kube/config
+#  - mkdir -p $HOME/.kube
+#  - sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+#  - sudo chown $(id -u):$(id -g) $HOME/.kube/config          
+#  - kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+#  - kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml    
 EOF
 }
 ######### End: Controller #########
@@ -224,15 +220,15 @@ write_files:
   owner: root:root
 runcmd:
  - hostnamectl set-hostname k8sworker${count.index}
- - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
- - echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" >/etc/apt/sources.list.d/kubernetes.list
+ - curl  -fsSL https://dl.k8s.io/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+ - echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" >/etc/apt/sources.list.d/kubernetes.list
  - apt-get update -y # Update apt package index
- - apt-get install -y docker.io kubelet kubeadm kubectl
- - | 
-  kubeadm join ${local.controller_ip}:6443 \
-  --token ${local.token} \
-  --discovery-token-unsafe-skip-ca-verification \
-  --node-name k8s-worker-${count.index} 
+#  - apt-get install -y docker.io kubelet kubeadm kubectl
+#  - | 
+#   kubeadm join ${local.controller_ip}:6443 \
+#   --token ${local.token} \
+#   --discovery-token-unsafe-skip-ca-verification \
+#   --node-name k8s-worker-${count.index} 
 EOF
 }
 ######### End: Workers #########
@@ -268,18 +264,18 @@ resource "random_string" "token_secret" {
 # Download kubeconfig file from master node to local machine
 #------------------------------------------------------------------------------#
 
-resource "null_resource" "download_kubeconfig_file" {
-  depends_on = [libvirt_domain.kubernetes_controller]
-  provisioner "local-exec" {
-    command = <<-EOF
-    alias scp='scp -q -i ${var.private_key_file} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-    scp root@${local.controller_ip}:/etc/kubernetes/admin.conf  ${var.kubeconfig_file} >/dev/null
-    EOF
-  }
-  triggers = {
-    controller_id = libvirt_domain.kubernetes_controller.id
-  }
-}
+# resource "null_resource" "download_kubeconfig_file" {
+#   depends_on = [libvirt_domain.kubernetes_controller]
+#   provisioner "local-exec" {
+#     command = <<-EOF
+#     alias scp='scp -q -i ${var.private_key_file} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+#     scp root@${local.controller_ip}:/etc/kubernetes/admin.conf  ${var.kubeconfig_file} >/dev/null
+#     EOF
+#   }
+#   triggers = {
+#     controller_id = libvirt_domain.kubernetes_controller.id
+#   }
+# }
 
 #------------------------------------------------------------------------------#
 # locals / outputs

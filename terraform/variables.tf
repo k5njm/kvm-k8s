@@ -9,6 +9,12 @@ variable "dns_domain" {
 }
 
 variable "deploy_workloads" {
-    description = "Deployment of workloads module"
+  description = "Deployment of workloads module: true/false"
   type        = bool
+}
+
+variable "kubeconfig_file" {
+  description = "Deployment of workloads module: true/false"
+  type        = string
+  default     = "kubeconfig"
 }
